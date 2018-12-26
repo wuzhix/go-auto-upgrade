@@ -1,3 +1,4 @@
+```
 package main
 
 import (
@@ -27,3 +28,4 @@ func main()  {
 	go upgrade.Execute(&release{}, &upgrade.Options{})
 	time.Sleep(time.Duration(100) * time.Second)
 }
+```
