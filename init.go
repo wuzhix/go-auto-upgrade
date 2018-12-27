@@ -1,20 +1,22 @@
 package upgrade
 
 import (
+	"crypto/md5"
 	"io"
 	"net/http"
 	"os"
 	"os/exec"
 	"path"
+	"runtime"
 	"time"
 )
 
 type Hook interface {
 	// 获取发布包路径
 	GetReleasePath() string
-	// 发布前操作
+	// 发布前操作，保存数据，终端服务等
 	BeforeRelease()
-	// 发布完成后操作
+	// 发布完成后操作，还原数据，恢复服务，检测新程序是否运行正常等
 	AfterRelease()
 }
 
@@ -31,10 +33,10 @@ func Execute(h Hook, ops *Options) {
 		println("Hook must be initialized")
 		return
 	}
-	//if runtime.GOOS != "linux" {
-	//	println("the package only support linux")
-	//	return
-	//}
+	if runtime.GOOS != "linux" {
+		println("the package only support linux")
+		return
+	}
 	ch := make(chan string, 1)
 	go func() {
 		ch <- h.GetReleasePath()
@@ -96,6 +98,20 @@ func download(url string, ops *Options) bool {
 	}
 	if count != res.ContentLength {
 		println("download ContentLength error")
+		return false
+	}
+	//判断下载文件和当前文件是否一样
+	f, err := os.Open(ops.curPath)
+	if err != nil {
+		println(err.Error())
+		return false
+	}
+	defer f.Close()
+	md5Cur, md5Target := md5.New(), md5.New()
+	io.Copy(md5Cur, f)
+	io.Copy(md5Target, fp)
+	if string(md5Cur.Sum(nil)) == string(md5Target.Sum(nil)) {
+		println("download file is the same as current file")
 		return false
 	}
 	return true
