@@ -14,10 +14,10 @@ import (
 type Hook interface {
 	// 获取发布包路径
 	GetReleasePath() string
-	// 发布前操作，保存数据，终端服务等
+	// 发布前操作，保存数据，中断服务等
 	BeforeRelease()
 	// 发布完成后操作，还原数据，恢复服务，检测新程序是否运行正常等
-	AfterRelease()
+	AfterRelease(status bool, info string)
 }
 
 type Options struct {
@@ -34,7 +34,8 @@ func Execute(h Hook, ops *Options) {
 		return
 	}
 	if runtime.GOOS != "linux" {
-		println("the package only support linux")
+		info := "the package only support linux"
+		h.AfterRelease(false, info)
 		return
 	}
 	ch := make(chan string)
@@ -48,17 +49,17 @@ func Execute(h Hook, ops *Options) {
 	//3、下载发布包
 	ret := download(url, ops)
 	if !ret {
-		println("download failed")
+		info := "download failed"
+		h.AfterRelease(false, info)
 		return
 	}
 	//4、发布前操作
 	h.BeforeRelease()
 	//5、发布
-	ret = release(ops)
-	println("release ", ret)
+	ret, info := release(ops)
+	h.AfterRelease(ret, info)
 	//6、发布后操作
 	if ret {
-		h.AfterRelease()
 		clean()
 	}
 }
@@ -117,23 +118,21 @@ func download(url string, ops *Options) bool {
 	return true
 }
 
-func release(ops *Options) bool {
+func release(ops *Options) (bool, string) {
 	println("release", ops.TargetPath)
 	// 移除历史版本
 	if exists(ops.oldPath) {
 		println("remove oldPath")
 		err := os.Remove(ops.oldPath)
 		if err != nil {
-			println(err.Error())
-			return false
+			return false, err.Error()
 		}
 	}
 	// 将当前版本备份
 	println("Rename curPath")
 	err := os.Rename(ops.curPath, ops.oldPath)
 	if err != nil {
-		println(err.Error())
-		return false
+		return false, err.Error()
 	}
 	// 将下载版本替换为当前版本
 	println("Rename TargetPath")
@@ -145,21 +144,22 @@ func release(ops *Options) bool {
 		if err != nil {
 			println("rollback fail")
 		}
-		return false
+		return false, err.Error()
 	}
 	// 启动新版本
 	println("exec Command ", path.Base(ops.curPath))
 	cmd := exec.Command("bash", "-c", `./`+path.Base(ops.curPath))
 	err = cmd.Start()
 	if err != nil {
+		println(err.Error())
 		// 替换失败，回滚文件
 		err = os.Rename(ops.oldPath, ops.curPath)
 		if err != nil {
 			println("rollback fail")
 		}
-		return false
+		return false, err.Error()
 	}
-	return true
+	return true, "success"
 }
 
 func clean() {
