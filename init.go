@@ -23,8 +23,8 @@ type Hook interface {
 type Options struct {
 	TargetPath string      //文件下载路径
 	TargetMode os.FileMode //文件权限
-	oldPath string	//历史版本路径
-	curPath string  //当前版本路径
+	oldPath    string      //历史版本路径
+	curPath    string      //当前版本路径
 }
 
 func Execute(h Hook, ops *Options) {
@@ -37,7 +37,7 @@ func Execute(h Hook, ops *Options) {
 		println("the package only support linux")
 		return
 	}
-	ch := make(chan string, 1)
+	ch := make(chan string)
 	go func() {
 		ch <- h.GetReleasePath()
 	}()
@@ -63,7 +63,7 @@ func Execute(h Hook, ops *Options) {
 	}
 }
 
-func checkOptions(ops *Options)  {
+func checkOptions(ops *Options) {
 	ops.curPath = os.Args[0]
 	ops.oldPath = ops.curPath + ".old"
 	if ops.TargetPath == "" || ops.TargetPath == ops.curPath {
@@ -149,7 +149,7 @@ func release(ops *Options) bool {
 	}
 	// 启动新版本
 	println("exec Command ", path.Base(ops.curPath))
-	cmd := exec.Command("bash", "-c", `./` + path.Base(ops.curPath))
+	cmd := exec.Command("bash", "-c", `./`+path.Base(ops.curPath))
 	err = cmd.Start()
 	if err != nil {
 		// 替换失败，回滚文件
@@ -162,12 +162,12 @@ func release(ops *Options) bool {
 	return true
 }
 
-func clean()  {
+func clean() {
 	os.Exit(1)
 }
 
 func exists(path string) bool {
-	_, err := os.Stat(path)    //os.Stat获取文件信息
+	_, err := os.Stat(path) //os.Stat获取文件信息
 	if err != nil {
 		if os.IsExist(err) {
 			return true
