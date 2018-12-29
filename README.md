@@ -1,3 +1,5 @@
+GO程序自动升级
+-
 ```
 package main
 
